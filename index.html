@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0f1115">
+<title>Galeri Foto · DiFotoinAja</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #171a21;
+    --card2: #1d2129;
+    --text: #f2f4f8;
+    --muted: #9aa3b2;
+    --accent: #2d9ff6;
+    --accent-ink: #06263d;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.45;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header.topbar {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    position: sticky;
+    top: 0;
+    background: rgba(15,17,21,.92);
+    backdrop-filter: blur(8px);
+    z-index: 5;
+  }
+  .brand { font-weight: 700; letter-spacing: .2px; color: var(--accent); }
+  .evname { color: var(--muted); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  main { flex: 1; width: 100%; max-width: 900px; margin: 0 auto; padding: 16px; }
+  footer { padding: 18px; text-align: center; color: var(--muted); font-size: 12px; }
+  .state { text-align: center; color: var(--muted); padding: 48px 12px; }
+  .hidden { display: none !important; }
+  .spinner {
+    width: 34px; height: 34px; margin: 0 auto 12px;
+    border: 3px solid rgba(255,255,255,.15);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  h1 { font-size: 20px; margin: 2px 0 4px; }
+  h2 { font-size: 15px; color: var(--muted); font-weight: 600; margin: 22px 2px 10px; text-transform: uppercase; letter-spacing: .6px; }
+  .muted { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+  .card { background: var(--card); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; border: 1px solid rgba(255,255,255,.05); }
+  .heroimg { width: 100%; border-radius: 12px; display: block; margin: 4px 0 12px; background: #0b0d11; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 11px 16px; border-radius: 12px; font-size: 14px; font-weight: 600;
+    text-decoration: none; border: 1px solid rgba(255,255,255,.14);
+    color: var(--text); background: transparent; cursor: pointer;
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  .grid.gifgrid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+  .cell { position: relative; border-radius: 14px; overflow: hidden; background: var(--card2); border: 1px solid rgba(255,255,255,.05); }
+  .cell img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; }
+  .grid.gifgrid .cell img { aspect-ratio: auto; }
+  .cell .cap { display: block; padding: 8px 10px; font-size: 12px; color: var(--muted); }
+  .cell.click { cursor: pointer; }
+  .dl {
+    position: absolute; top: 8px; right: 8px;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(10,12,16,.72); color: #fff; text-decoration: none; font-size: 15px;
+    border: 1px solid rgba(255,255,255,.2);
+  }
+  #lightbox {
+    position: fixed; inset: 0; z-index: 20;
+    background: rgba(5,6,9,.94);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; padding: 18px;
+  }
+  #lightbox img { max-width: 100%; max-height: 76vh; border-radius: 12px; }
+  .lb-actions { display: flex; gap: 10px; }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <span class="brand">DiFotoinAja</span>
+  <span class="evname" id="evname"></span>
+</header>
+<main id="main">
+  <div id="loading" class="state"><div class="spinner"></div><p>Memuat galeri…</p></div>
+  <div id="error" class="state hidden">
+    <p id="errmsg">Galeri tidak ditemukan.</p>
+    <button class="btn primary" id="retry">Coba Lagi</button>
+  </div>
+  <div id="content" class="hidden"></div>
+</main>
+<div id="lightbox" class="hidden">
+  <img id="lightimg" alt="">
+  <div class="lb-actions">
+    <a id="lbdl" class="btn primary" href="#" download>Unduh</a>
+    <button id="lbclose" class="btn">Tutup</button>
+  </div>
+</div>
+<footer>DiFotoinAja · halaman galeri tamu</footer>
+<script>
+(function () {
+  'use strict';
+
+  var thumb = function (id, w) { return 'https://lh3.googleusercontent.com/d/' + id + '=w' + (w || 400); };
+  var full = function (id) { return 'https://lh3.googleusercontent.com/d/' + id + '=w1600'; };
+  var orig = function (id) { return 'https://lh3.googleusercontent.com/d/' + id; };
+  var dl = function (id) { return 'https://drive.usercontent.google.com/download?id=' + id + '&export=download'; };
+  var folderLink = function (id) { return 'https://drive.google.com/drive/folders/' + id; };
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
+  var fmtTime = function (ms) {
+    try {
+      return new Date(ms).toLocaleString('id-ID', {
+        day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+      });
+    } catch (e) { return ''; }
+  };
+
+  var hostParts = location.hostname.split('.');
+  var owner = hostParts[0] || '';
+  var repo = location.pathname.split('/').filter(Boolean)[0] || '';
+  var bases = [];
+  if (owner && repo && location.protocol.indexOf('http') === 0) {
+    bases.push('https://raw.githubusercontent.com/' + owner + '/' + repo + '/main/');
+    bases.push('https://raw.githubusercontent.com/' + owner + '/' + repo + '/master/');
+  }
+  bases.push('./');
+
+  var loading = document.getElementById('loading');
+  var errorBox = document.getElementById('error');
+  var errmsg = document.getElementById('errmsg');
+  var content = document.getElementById('content');
+  var evname = document.getElementById('evname');
+  var lightbox = document.getElementById('lightbox');
+  var lightimg = document.getElementById('lightimg');
+  var lbdl = document.getElementById('lbdl');
+
+  function show(which) {
+    loading.classList.toggle('hidden', which !== 'loading');
+    errorBox.classList.toggle('hidden', which !== 'error');
+    content.classList.toggle('hidden', which !== 'content');
+  }
+
+  function loadManifest(path) {
+    var t = Date.now();
+    var chain = Promise.reject(new Error('no base'));
+    bases.forEach(function (base) {
+      chain = chain.catch(function () { return fetch(base + path + '?t=' + t, { cache: 'no-store' }).then(function (res) {
+        if (!res.ok) throw new Error('Manifest tidak ditemukan (HTTP ' + res.status + ').');
+        return res.json();
+      }); });
+    });
+    return chain;
+  }
+
+  function sessionView(m) {
+    var files = m.files || [];
+    var finals = files.filter(function (f) { return f.kind === 'final'; });
+    var plains = files.filter(function (f) { return f.kind === 'polos'; });
+    var gifs = files.filter(function (f) { return f.kind === 'gif'; });
+    var main = finals.length ? finals[0] : files[0];
+    var h = '<section class="card">';
+    if (m.eventName) h += '<h1>' + esc(m.eventName) + '</h1>';
+    h += '<p class="muted">' + esc(fmtTime(m.timeMs)) + '</p>';
+    if (main) {
+      h += '<img class="heroimg" src="' + full(main.id) + '" alt="Foto final">';
+      h += '<div class="actions">';
+      h += '<a class="btn primary" href="' + dl(main.id) + '" download>Unduh Foto Final</a>';
+      if (m.folderId) h += '<a class="btn" href="' + folderLink(m.folderId) + '" target="_blank" rel="noopener">Buka Folder Drive (semua)</a>';
+      h += '</div>';
+    }
+    h += '</section>';
+    if (plains.length) {
+      h += '<h2>Foto Polos</h2><div class="grid">' + plains.map(function (f) {
+        return '<div class="cell"><img src="' + thumb(f.id) + '" alt="' + esc(f.name) + '" data-full="' + full(f.id) + '" data-dl="' + dl(f.id) + '">' +
+          '<a class="dl" href="' + dl(f.id) + '" download aria-label="Unduh">&#8681;</a></div>';
+      }).join('') + '</div>';
+    }
+    if (gifs.length) {
+      h += '<h2>Animasi</h2><div class="grid gifgrid">' + gifs.map(function (f) {
+        return '<div class="cell"><img src="' + orig(f.id) + '" alt="' + esc(f.name) + '">' +
+          '<a class="dl" href="' + dl(f.id) + '" download aria-label="Unduh">&#8681;</a></div>';
+      }).join('') + '</div>';
+    }
+    return h;
+  }
+
+  function eventView(m) {
+    var sessions = m.sessions || [];
+    var h = '<section class="card"><h1>' + esc(m.eventName || 'Galeri Foto') + '</h1>';
+    h += '<p class="muted">' + sessions.length + ' sesi foto</p><div class="actions">';
+    if (m.folderId) h += '<a class="btn" href="' + folderLink(m.folderId) + '" target="_blank" rel="noopener">Buka Folder Drive</a>';
+    h += '</div></section>';
+    if (!sessions.length) {
+      h += '<p class="state">Belum ada foto. Halaman ini menyegarkan otomatis.</p>';
+    } else {
+      h += '<div class="grid">' + sessions.map(function (s) {
+        return '<div class="cell click" data-sid="' + esc(s.sessionId) + '">' +
+          '<img src="' + thumb(s.finalId) + '" alt="Sesi foto">' +
+          '<span class="cap">' + esc(fmtTime(s.timeMs)) + '</span></div>';
+      }).join('') + '</div>';
+    }
+    return h;
+  }
+
+  var pollTimer = null;
+  function stopPoll() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
+  function currentParams() {
+    var q = new URLSearchParams(location.search);
+    return { s: q.get('s'), e: q.get('e') };
+  }
+
+  function openLightbox(src, dlUrl) {
+    lightimg.src = src;
+    lbdl.href = dlUrl;
+    lightbox.classList.remove('hidden');
+  }
+
+  content.addEventListener('click', function (event) {
+    var dlBtn = event.target.closest('.dl');
+    if (dlBtn) { event.stopPropagation(); return; }
+    var plain = event.target.closest('.cell img[data-full]');
+    if (plain) {
+      var card = plain.closest('.cell');
+      openLightbox(plain.getAttribute('data-full'), card.querySelector('.dl').getAttribute('href'));
+      return;
+    }
+    var cell = event.target.closest('.cell[data-sid]');
+    if (cell) {
+      history.pushState({ galeri: 1 }, '', '?s=' + encodeURIComponent(cell.getAttribute('data-sid')));
+      render();
+    }
+  });
+
+  document.getElementById('lbclose').addEventListener('click', function () {
+    lightbox.classList.add('hidden');
+    lightimg.src = '';
+  });
+  lightbox.addEventListener('click', function (event) {
+    if (event.target === lightbox) {
+      lightbox.classList.add('hidden');
+      lightimg.src = '';
+    }
+  });
+
+  document.getElementById('retry').addEventListener('click', function () { render(); });
+
+  window.addEventListener('popstate', function () { render(); });
+
+  function render() {
+    var p = currentParams();
+    show('loading');
+    evname.textContent = '';
+    stopPoll();
+    if (p.s) {
+      loadManifest('s/' + encodeURIComponent(p.s) + '.json').then(function (m) {
+        document.title = (m.eventName ? m.eventName + ' · ' : '') + 'Galeri Foto';
+        evname.textContent = m.eventName || '';
+        content.innerHTML = sessionView(m);
+        show('content');
+      }).catch(function (err) { fail(err); });
+    } else if (p.e) {
+      var capture = p.e;
+      loadManifest('e/' + encodeURIComponent(capture) + '.json').then(function (m) {
+        document.title = (m.eventName ? m.eventName + ' · ' : '') + 'Galeri Foto';
+        evname.textContent = m.eventName || '';
+        content.innerHTML = eventView(m);
+        show('content');
+        var lastJson = JSON.stringify(m);
+        pollTimer = setInterval(function () {
+          if (currentParams().e !== capture) { stopPoll(); return; }
+          loadManifest('e/' + encodeURIComponent(capture) + '.json').then(function (fresh) {
+            var freshJson = JSON.stringify(fresh);
+            if (freshJson !== lastJson) {
+              lastJson = freshJson;
+              content.innerHTML = eventView(fresh);
+            }
+          }).catch(function () { /* diamkan; coba lagi pada interval berikutnya */ });
+        }, 20000);
+      }).catch(function (err) { fail(err); });
+    } else {
+      fail(new Error('Tautan tidak lengkap. Scan ulang QR dari booth.'));
+    }
+  }
+
+  function fail(err) {
+    errmsg.textContent = (err && err.message) ? err.message : 'Galeri tidak ditemukan.';
+    show('error');
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
