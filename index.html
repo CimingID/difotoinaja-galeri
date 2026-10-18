@@ -180,7 +180,7 @@
     var gifs = files.filter(function (f) { return f.kind === 'gif'; });
     var main = finals.length ? finals[0] : files[0];
     var h = '<section class="card">';
-    if (fromEvent) h += '<div class="actions backrow"><button class="btn" id="backsess" type="button">&#8592; Semua Sesi</button></div>';
+    if (fromEvent) h += '<div class="actions backrow"><button class="btn" id="backsess" type="button">&#8592; Kembali</button></div>';
     if (m.eventName) h += '<h1>' + esc(m.eventName) + '</h1>';
     h += '<p class="muted">' + esc(fmtTime(m.timeMs)) + '</p>';
     if (main) {
