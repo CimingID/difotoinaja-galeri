@@ -60,6 +60,7 @@
   .card { background: var(--card); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; border: 1px solid rgba(255,255,255,.05); }
   .heroimg { width: 100%; border-radius: 12px; display: block; margin: 4px 0 12px; background: #0b0d11; }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .backrow { margin-bottom: 10px; }
   .btn {
     display: inline-flex; align-items: center; justify-content: center;
     padding: 11px 16px; border-radius: 12px; font-size: 14px; font-weight: 600;
@@ -172,20 +173,21 @@
     return chain;
   }
 
-  function sessionView(m) {
+  function sessionView(m, fromEvent) {
     var files = m.files || [];
     var finals = files.filter(function (f) { return f.kind === 'final'; });
     var plains = files.filter(function (f) { return f.kind === 'polos'; });
     var gifs = files.filter(function (f) { return f.kind === 'gif'; });
     var main = finals.length ? finals[0] : files[0];
     var h = '<section class="card">';
+    if (fromEvent) h += '<div class="actions backrow"><button class="btn" id="backsess" type="button">&#8592; Semua Sesi</button></div>';
     if (m.eventName) h += '<h1>' + esc(m.eventName) + '</h1>';
     h += '<p class="muted">' + esc(fmtTime(m.timeMs)) + '</p>';
     if (main) {
       h += '<img class="heroimg" src="' + full(main.id) + '" alt="Foto final">';
       h += '<div class="actions">';
       h += '<a class="btn primary" href="' + dl(main.id) + '" download>Unduh Foto Final</a>';
-      if (m.folderId) h += '<a class="btn" href="' + folderLink(m.folderId) + '" target="_blank" rel="noopener">Buka Folder Drive (semua)</a>';
+      if (m.folderId && fromEvent) h += '<a class="btn" href="' + folderLink(m.folderId) + '" target="_blank" rel="noopener">Buka Folder Drive (foto sesi ini)</a>';
       h += '</div>';
     }
     h += '</section>';
@@ -223,6 +225,7 @@
   }
 
   var pollTimer = null;
+  var currentEventId = null;
   function stopPoll() {
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   }
@@ -239,6 +242,8 @@
   }
 
   content.addEventListener('click', function (event) {
+    var backBtn = event.target.closest('#backsess');
+    if (backBtn) { history.back(); return; }
     var dlBtn = event.target.closest('.dl');
     if (dlBtn) { event.stopPropagation(); return; }
     var plain = event.target.closest('.cell img[data-full]');
@@ -249,7 +254,7 @@
     }
     var cell = event.target.closest('.cell[data-sid]');
     if (cell) {
-      history.pushState({ galeri: 1 }, '', '?s=' + encodeURIComponent(cell.getAttribute('data-sid')));
+      history.pushState({ galeri: 1, from: currentEventId }, '', '?s=' + encodeURIComponent(cell.getAttribute('data-sid')));
       render();
     }
   });
@@ -275,14 +280,16 @@
     evname.textContent = '';
     stopPoll();
     if (p.s) {
+      var fromEvent = !!(history.state && history.state.from);
       loadManifest('s/' + encodeURIComponent(p.s) + '.json').then(function (m) {
         document.title = (m.eventName ? m.eventName + ' · ' : '') + 'Galeri Foto';
         evname.textContent = m.eventName || '';
-        content.innerHTML = sessionView(m);
+        content.innerHTML = sessionView(m, fromEvent);
         show('content');
       }).catch(function (err) { fail(err); });
     } else if (p.e) {
       var capture = p.e;
+      currentEventId = capture;
       loadManifest('e/' + encodeURIComponent(capture) + '.json').then(function (m) {
         document.title = (m.eventName ? m.eventName + ' · ' : '') + 'Galeri Foto';
         evname.textContent = m.eventName || '';
